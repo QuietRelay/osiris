@@ -84,6 +84,7 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     icon: Camera,
     layers: [
       { key: 'cctv', label: 'CCTV Cameras', dataKey: 'cameras' },
+      { key: 'alpr', label: 'ALPR / Flock Cameras', dataKey: 'alprCameras' },
       { key: 'live_news', label: 'Live News Feeds', dataKey: 'live_feeds' },
       { key: 'news_intel', label: 'SIGINT News', dataKey: 'sigint_news' },
     ],

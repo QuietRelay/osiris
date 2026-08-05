@@ -189,7 +189,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-fire', isGhost ? phantomPurple : '#E65100', 10);
       createDot(map, 'dot-cctv', cameraColor, 10);
 
-      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','gps-jamming','day-night','cctv','fires','weather','infrastructure','maritime','maritime-choke','maritime-ships','live-news','sigint-news','conflict-zones', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'ip-sweep-devices', 'ip-sweep-pulse', 'ip-sweep-connections', 'scan-targets', 'sdk-entities', 'sdk-links', 'malware-nodes', 'network-mesh', 'cyber-arcs', 'cyber-heads', 'cyber-impacts', 'gdelt-events', 'cf-outages', 'cf-attacks'];
+      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','gps-jamming','day-night','cctv','alpr','fires','weather','infrastructure','maritime','maritime-choke','maritime-ships','live-news','sigint-news','conflict-zones', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'ip-sweep-devices', 'ip-sweep-pulse', 'ip-sweep-connections', 'scan-targets', 'sdk-entities', 'sdk-links', 'malware-nodes', 'network-mesh', 'cyber-arcs', 'cyber-heads', 'cyber-impacts', 'gdelt-events', 'cf-outages', 'cf-attacks'];
       sources.forEach(s => map.addSource(s, { type: 'geojson', data: EMPTY_FC }));
 
       // ── FLIGHT ROUTE VISUALIZATION SOURCES & LAYERS ──
@@ -270,6 +270,23 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-field': ['get','name'], 'text-size': 9, 'text-font': ['Open Sans Regular'],
         'text-offset': [0, 1.8], 'text-max-width': 12, 'text-allow-overlap': false,
       }, paint: { 'text-color': cameraColor, 'text-halo-color': '#000000', 'text-halo-width': 1.5, 'text-opacity': 0.8 }});
+
+      // ALPR / Flock — outer glow ring (amber, distinct from CCTV cyan)
+      map.addLayer({ id: 'alpr-glow', type: 'circle', source: 'alpr', paint: {
+        'circle-radius': ['interpolate',['linear'],['zoom'], 1,4, 5,7, 10,12, 14,18],
+        'circle-color': '#FFB300', 'circle-opacity': 0.3, 'circle-blur': 1,
+      }});
+      // ALPR / Flock — main dot
+      map.addLayer({ id: 'alpr-dots', type: 'circle', source: 'alpr', paint: {
+        'circle-radius': ['interpolate',['linear'],['zoom'], 1,2, 5,4, 10,6, 14,9],
+        'circle-color': '#FFB300', 'circle-opacity': 0.9,
+        'circle-stroke-width': 2, 'circle-stroke-color': '#000000', 'circle-stroke-opacity': 0.9,
+      }});
+      // ALPR / Flock — labels at zoom 12+ (denser than CCTV, keep labels later)
+      map.addLayer({ id: 'alpr-label', type: 'symbol', source: 'alpr', minzoom: 12, layout: {
+        'text-field': ['get','name'], 'text-size': 9, 'text-font': ['Open Sans Regular'],
+        'text-offset': [0, 1.6], 'text-max-width': 12, 'text-allow-overlap': false,
+      }, paint: { 'text-color': '#FFB300', 'text-halo-color': '#000000', 'text-halo-width': 1.5, 'text-opacity': 0.8 }});
 
       // GDELT
 
@@ -968,6 +985,22 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       map.flyTo({ center: coords, zoom: Math.max(map.getZoom(), 13), duration: 1000 });
     });
 
+    // ── ALPR / Flock camera (info popup — no live feed available) ──
+    map.on('click', 'alpr-dots', e => {
+      if (!e.features?.length) return;
+      const p = e.features[0].properties as any;
+      const coords = (e.features[0].geometry as any).coordinates;
+      popup(coords, `<div style="${pStyle}border:1px solid rgba(255,179,0,0.4);">
+        <div style="color:#FFB300;font-size:12px;font-weight:700;margin-bottom:6px;">📷 ALPR CAMERA (${p.brand || 'Unknown make'})</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;margin-bottom:8px;">
+          <div><span style="color:#5C5A54;">MOUNT</span><br/><span style="color:#E8E6E0;">${p.mount || '—'}</span></div>
+          <div><span style="color:#5C5A54;">DIRECTION</span><br/><span style="color:#E8E6E0;">${p.direction ? p.direction + '°' : '—'}</span></div>
+        </div>
+        ${p.note ? `<div style="font-size:9px;color:#9A9890;margin-bottom:8px;">${p.note}</div>` : ''}
+        <div style="font-size:7px;color:#5C5A54;letter-spacing:0.1em;">SOURCE: OPENSTREETMAP / DEFLOCK — LOCATION ONLY, NOT A LIVE FEED</div>
+      </div>`);
+    });
+
     // ── Earthquakes (with USGS link) ──
     map.on('click', 'eq-circles', e => {
       if (!e.features?.length) return;
@@ -1227,7 +1260,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     });
 
     // ── Generic hover for clickables ──
-    ['conflict-icons','cctv-dots','eq-circles','sat-dots','fires-heat','gdelt-dots','weather-dots','infra-dots','maritime-dots','choke-dots','news-dots','sigint-news-dots','balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots','sdk-sea','sdk-sea-glow','sdk-sea-atmo','sdk-air','sdk-air-glow','sdk-air-atmo','sdk-intel','sdk-intel-glow','sdk-intel-atmo','malware-dots','cyber-heads','gdelt-events-dots','cf-outage-dots','cf-attack-dots'].forEach(layer => {
+    ['conflict-icons','cctv-dots','alpr-dots','eq-circles','sat-dots','fires-heat','gdelt-dots','weather-dots','infra-dots','maritime-dots','choke-dots','news-dots','sigint-news-dots','balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots','sdk-sea','sdk-sea-glow','sdk-sea-atmo','sdk-air','sdk-air-glow','sdk-air-atmo','sdk-intel','sdk-intel-glow','sdk-intel-atmo','malware-dots','cyber-heads','gdelt-events-dots','cf-outage-dots','cf-attack-dots'].forEach(layer => {
       map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     });
@@ -1747,6 +1780,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
+    setGeo('alpr', (activeLayers as any).alpr && (data as any).alprCameras ? (data as any).alprCameras.map((c: any) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [c.lng, c.lat] }, properties: { id: c.id, name: c.name, brand: c.brand, direction: c.direction, mount: c.mount, note: c.note, source: c.source } })) : []);
+  }, [mapReady, (data as any).alprCameras, (activeLayers as any).alpr, setGeo]);
+
+  useEffect(() => {
+    if (!mapReady) return;
     setGeo('fires', activeLayers.fires && data.fires ? data.fires.map((f: any) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [f.lng, f.lat] }, properties: { brightness: f.brightness } })) : []);
   }, [mapReady, data.fires, activeLayers.fires, setGeo]);
 
@@ -1919,6 +1957,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setVis(['fl-jets'], activeLayers.jets);
     setVis(['fl-military'], activeLayers.military);
     setVis(['cctv-glow','cctv-dots','cctv-label'], activeLayers.cctv);
+    setVis(['alpr-glow','alpr-dots','alpr-label'], (activeLayers as any).alpr);
     setVis(['fires-heat'], activeLayers.fires);
     setVis(['weather-glow','weather-dots','weather-label'], activeLayers.weather);
     setVis(['infra-glow','infra-dots','infra-label'], activeLayers.infrastructure);
