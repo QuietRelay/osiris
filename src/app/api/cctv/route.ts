@@ -236,17 +236,22 @@ async function fetchCanadaCameras(): Promise<any[]> {
 // ── US-CENTRAL: Chicago, Houston, Dallas, Denver ──
 async function fetchUSCentralCameras(): Promise<any[]> {
   const cams: any[] = [];
-  // Illinois DOT
+  // Illinois DOT — public ArcGIS FeatureServer (the old travelmidwest.com/lmiga
+  // JSON endpoint now requires a browser session and always returns empty).
   try {
-    const res = await stealthFetch('https://www.travelmidwest.com/lmiga/cameraReport.json', { signal: AbortSignal.timeout(8000) });
+    const res = await stealthFetch(
+      'https://services2.arcgis.com/aIrBD8yn1TDTEXoz/arcgis/rest/services/TrafficCamerasTM_Public/FeatureServer/0/query?where=1%3D1&outFields=*&f=json',
+      { signal: AbortSignal.timeout(12000) }
+    );
     if (res.ok) {
       const data = await res.json();
-      for (const cam of (data?.cameraReports || data || []).slice(0, 800)) {
-        if (!cam.latitude || !cam.longitude) continue;
+      for (const f of (data?.features || []).slice(0, 3000)) {
+        const p = f.attributes;
+        if (!p?.y || !p?.x || !p?.SnapShot) continue;
         cams.push({
-          id: `ildot-${cams.length}`, lat: cam.latitude, lng: cam.longitude,
-          name: cam.cameraName || cam.description || 'IDOT Camera', city: 'Illinois', country: 'US',
-          feed_url: cam.imageUrl || cam.url || '', source: 'IDOT',
+          id: `ildot-${p.OBJECTID}`, lat: p.y, lng: p.x,
+          name: p.CameraLocation || 'IDOT Camera', city: 'Illinois', country: 'US',
+          feed_url: p.SnapShot, source: 'IDOT',
         });
       }
     }
